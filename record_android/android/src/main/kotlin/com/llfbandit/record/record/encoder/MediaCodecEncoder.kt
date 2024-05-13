@@ -16,21 +16,28 @@ class MediaCodecEncoder(
 
     private val codec = createCodec(mediaFormat)
     private var trackIndex = -1
-    private var recordStopped: Boolean = false
+    private var recordStopped = false
+    private var recordPaused = false
 
     override fun start() {
         codec.setCallback(this)
         codec.start()
     }
 
+    override fun pause() {
+        recordPaused = true
+    }
+
+    override fun resume() {
+        recordPaused = false
+    }
+
     override fun stop() {
+        recordPaused = false
         recordStopped = true
     }
 
-    override fun release() {
-        codec.release()
-        container.release()
-    }
+    override fun release() {}
 
     @TargetApi(Build.VERSION_CODES.Q)
     private fun findCodecForFormat(format: MediaFormat): String? {
@@ -75,6 +82,9 @@ class MediaCodecEncoder(
 
     private fun internalStop() {
         codec.stop()
+        codec.release()
+        container.stop()
+        container.release()
 
         listener.onEncoderStop()
     }
@@ -93,6 +103,11 @@ class MediaCodecEncoder(
     }
 
     override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
+        if (recordPaused) {
+            codec.queueInputBuffer(index, 0, 0, 0, 0)
+            return
+        }
+
         try {
             val byteBuffer = codec.getInputBuffer(index) ?: return
             val resultBytes = listener.onEncoderDataNeeded(byteBuffer)

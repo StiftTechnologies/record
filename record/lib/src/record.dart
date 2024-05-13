@@ -98,6 +98,14 @@ class AudioRecorder {
     return path;
   }
 
+  /// Stops and discards/deletes the file/blob.
+  Future<void> cancel() async {
+    _created ??= await _create();
+    _amplitudeTimer?.cancel();
+
+    return RecordPlatform.instance.cancel(_recorderId);
+  }
+
   /// Pauses recording session.
   Future<void> pause() async {
     _created ??= await _create();
@@ -226,13 +234,13 @@ class AudioRecorder {
   }
 
   /// Utility method to get PCM data as signed 16 bits integers.
-  List<int> convertBytesToInt16(Uint8List bytes) {
+  List<int> convertBytesToInt16(Uint8List bytes, [endian = Endian.little]) {
     final values = <int>[];
 
     final data = ByteData.view(bytes.buffer);
 
     for (var i = 0; i < bytes.length; i += 2) {
-      int short = data.getInt16(i, Endian.host);
+      int short = data.getInt16(i, endian);
       values.add(short);
     }
 
